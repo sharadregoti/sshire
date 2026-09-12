@@ -3,8 +3,6 @@ package sshserver
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
 	"strings"
 	"sync"
 	"testing"
@@ -51,22 +49,16 @@ func testConfig(tb testing.TB) *config.Config {
 	}
 }
 
-// clientConfig authenticates with a throwaway keypair. The server's
-// PublicKeyAuth handler accepts any key by design (it's a public careers
-// page, not a login), so any freshly generated key works.
+// clientConfig offers no auth method at all — deliberately: the server runs
+// with NoClientAuth (see internal/sshserver/server.go), so a candidate with
+// no SSH keypair on their machine, and nothing to offer, must still get in.
+// This is a regression test for a real bug: an earlier PublicKeyAuth
+// handler that unconditionally accepted keys still required the client to
+// *possess* one, which failed outright for a client with none configured.
 func clientConfig(tb testing.TB) *gossh.ClientConfig {
 	tb.Helper()
-	_, priv, err := ed25519.GenerateKey(rand.Reader)
-	if err != nil {
-		tb.Fatalf("generate client key: %v", err)
-	}
-	signer, err := gossh.NewSignerFromKey(priv)
-	if err != nil {
-		tb.Fatalf("signer from key: %v", err)
-	}
 	return &gossh.ClientConfig{
 		User:            "candidate",
-		Auth:            []gossh.AuthMethod{gossh.PublicKeys(signer)},
 		HostKeyCallback: gossh.InsecureIgnoreHostKey(), //nolint:gosec // test-only, throwaway host key
 		Timeout:         5 * time.Second,
 	}

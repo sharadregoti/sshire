@@ -6,6 +6,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -33,15 +34,13 @@ func (i jobItem) Title() string       { return i.job.Title }
 func (i jobItem) Description() string { return fmt.Sprintf("%s · %s", i.job.Location, i.job.Type) }
 func (i jobItem) FilterValue() string { return i.job.Title }
 
-var (
-	headerStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("212"))
-	dimStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
-	helpStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-)
-
 // Options configures a new Model. Company/Tagline/DefaultApplyEmail come
 // from config.yaml's top-level company block; Jobs/Sinks/RemoteAddr are
-// per-server and per-session respectively.
+// per-server and per-session respectively. Renderer should be the session's
+// own *lipgloss.Renderer (see bubbletea.MakeRenderer) so styling reflects
+// that client's actual terminal capabilities; nil falls back to lipgloss's
+// package-level default renderer, which is fine for tests but wrong for a
+// real SSH session (see Styles' doc comment in style.go).
 type Options struct {
 	Company           string
 	Tagline           string
@@ -49,6 +48,7 @@ type Options struct {
 	Jobs              []model.Job
 	Sinks             sink.Multi
 	RemoteAddr        string
+	Renderer          *lipgloss.Renderer
 }
 
 type Model struct {
@@ -58,6 +58,8 @@ type Model struct {
 	jobs              []model.Job
 	sinks             sink.Multi
 	remoteAddr        string
+	renderer          *lipgloss.Renderer
+	styles            Styles
 
 	state  state
 	list   list.Model
@@ -78,13 +80,25 @@ type Model struct {
 }
 
 func New(opts Options) Model {
+	renderer := opts.Renderer
+	if renderer == nil {
+		renderer = lipgloss.DefaultRenderer()
+	}
+	styles := newStyles(renderer)
+
 	items := make([]list.Item, len(opts.Jobs))
 	for i, j := range opts.Jobs {
 		items[i] = jobItem{job: j}
 	}
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
-	l.Title = fmt.Sprintf("%s — open roles", opts.Company)
+	l := list.New(items, jobDelegate{styles: styles}, 0, 0)
+	// The card's own chrome (dots + title bar) replaces list's built-in
+	// title/status/pagination/help chrome entirely; "Open roles" and the
+	// key hints are rendered by viewList instead.
+	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
+	l.SetShowPagination(false)
+	l.SetShowHelp(false)
+	l.DisableQuitKeybindings()
 
 	return Model{
 		company:           opts.Company,
@@ -93,31 +107,45 @@ func New(opts Options) Model {
 		jobs:              opts.Jobs,
 		sinks:             opts.Sinks,
 		remoteAddr:        opts.RemoteAddr,
+		renderer:          renderer,
+		styles:            styles,
 		state:             stateList,
 		list:              l,
 		detail:            viewport.New(0, 0),
 	}
 }
 
-// detailChromeLines is everything viewDetail wraps around the scrollable
-// description: the outer Padding(1, 2)'s top+bottom lines, title, meta,
-// a blank line, another blank line, and the help/scroll-position line.
-const detailChromeLines = 7
+// detailOverhead is every line renderCard and viewDetail wrap around the
+// scrollable description: the card's own top+bottom padding (2), the
+// chrome bar+rule (2) and the blank line under it (1), the job title (1),
+// the meta line (1), a blank line (1), and the trailing blank+help line
+// (2) — 10 total.
+const detailOverhead = 10
 
-func (m *Model) sizeDetail() {
-	m.detail.Width = m.width
-	m.detail.Height = max(m.height-detailChromeLines, 1)
+// resizeDetail re-wraps the current job's description to the terminal's
+// current width and re-derives the viewport's height from how many lines
+// that actually took, capped so a long description scrolls instead of
+// pushing the card past the screen. Called both when a job is opened and
+// on every resize; scroll position resets on resize since a re-wrap at a
+// different width changes what "line 12" even means.
+func (m *Model) resizeDetail() {
+	width := m.proseContentWidth()
+	content := m.job.Description
+	if email := m.effectiveApplyEmail(); email != "" {
+		content += "\n\nTo apply: " + email
+	}
+	wrapped := m.renderer.NewStyle().Width(width).Render(content)
+	neededLines := strings.Count(wrapped, "\n") + 1
+
+	m.detail.Width = width
+	m.detail.Height = min(neededLines, m.maxContentHeight(detailOverhead))
+	m.detail.SetContent(wrapped)
+	m.detail.GotoTop()
 }
 
 func (m *Model) openJob(job model.Job) {
 	m.job = job
-	content := job.Description
-	if email := m.effectiveApplyEmail(); email != "" {
-		content += "\n\nTo apply: " + email
-	}
-	m.sizeDetail()
-	m.detail.SetContent(content)
-	m.detail.GotoTop()
+	m.resizeDetail()
 }
 
 // effectiveApplyEmail returns the "just email us" address for the currently
@@ -136,10 +164,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		m.list.SetSize(msg.Width, msg.Height-4)
-		m.sizeDetail()
+		m.list.SetSize(m.listContentWidth(), min(len(m.jobs), m.maxContentHeight(listOverhead)))
+		m.resizeDetail()
 		if m.form != nil {
-			m.form = m.form.WithWidth(msg.Width)
+			m.form = m.form.WithWidth(m.proseContentWidth())
 		}
 		return m, nil
 
@@ -194,7 +222,9 @@ func (m Model) updateDetail(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		m.applyName, m.applyEmail, m.applyResume, m.applyMessage = new(string), new(string), new(string), new(string)
 		m.form = newApplyForm(m.applyName, m.applyEmail, m.applyResume, m.applyMessage)
-		m.form = m.form.WithWidth(m.width)
+		// No WithHeight: the form should hug its own fields, not stretch to
+		// fill some fixed budget and leave empty space beneath them.
+		m.form = m.form.WithWidth(m.proseContentWidth()).WithTheme(m.applyTheme())
 		m.state = stateApply
 		return m, m.form.Init()
 	}
@@ -255,21 +285,58 @@ func required(field string) func(string) error {
 	}
 }
 
+func (m Model) title() string {
+	return fmt.Sprintf("%s — Jobs", m.company)
+}
+
 func (m Model) View() string {
 	switch m.state {
 	case stateList:
-		return m.list.View()
+		return m.renderCard(m.title(), m.listContentWidth(), m.viewList())
 	case stateDetail:
-		return m.viewDetail()
+		return m.renderCard(m.title(), m.proseContentWidth(), m.viewDetail())
 	case stateApply:
 		if m.form == nil {
 			return ""
 		}
-		return m.form.View()
+		return m.renderCard(m.title(), m.proseContentWidth(), m.form.View())
 	case stateDone:
-		return m.viewDone()
+		body := m.viewDone()
+		return m.renderCard(m.title(), naturalWidth(body), body)
 	}
 	return ""
+}
+
+// listOverhead is every line viewList and renderCard wrap around the job
+// list itself: card padding (2), chrome+rule+blank (3), "Open roles" (1),
+// a blank line, and the trailing blank+help line (2) — 9 total.
+const listOverhead = 9
+
+// listHelpText is the list screen's help line; listContentWidth needs its
+// width too so the line doesn't wrap, and viewList renders the same text.
+const listHelpText = "↑/↓ move · enter open · q/esc quit"
+
+// listContentWidth sizes the card to the longest job title actually being
+// shown — a two-job list gets a narrow card; a job with a long title
+// widens it — rather than every list sharing one fixed width. Must also
+// fit "Open roles" and the help line, or one of those wraps instead.
+func (m Model) listContentWidth() int {
+	w := max(lipgloss.Width("Open roles"), lipgloss.Width(listHelpText))
+	for _, j := range m.jobs {
+		if lw := lipgloss.Width("› " + j.Title); lw > w {
+			w = lw
+		}
+	}
+	return w
+}
+
+func (m Model) viewList() string {
+	return fmt.Sprintf(
+		"%s\n\n%s\n\n%s",
+		m.styles.header.Render("Open roles"),
+		m.list.View(),
+		m.styles.help.Render(listHelpText),
+	)
 }
 
 func (m Model) viewDetail() string {
@@ -282,22 +349,20 @@ func (m Model) viewDetail() string {
 	last := min(m.detail.YOffset+m.detail.VisibleLineCount(), total)
 	position := fmt.Sprintf("lines %d-%d of %d", m.detail.YOffset+1, last, total)
 
-	body := fmt.Sprintf(
+	return fmt.Sprintf(
 		"%s\n%s\n\n%s\n\n%s",
-		headerStyle.Render(m.job.Title),
-		dimStyle.Render(fmt.Sprintf("%s · %s", m.job.Location, m.job.Type)),
+		m.styles.header.Render(m.job.Title),
+		m.styles.dim.Render(fmt.Sprintf("%s · %s", m.job.Location, m.job.Type)),
 		m.detail.View(),
-		helpStyle.Render(help+"    "+position),
+		m.styles.help.Render(help+"    "+position),
 	)
-	return lipgloss.NewStyle().Padding(1, 2).Render(body)
 }
 
 func (m Model) viewDone() string {
-	body := fmt.Sprintf(
+	return fmt.Sprintf(
 		"%s\n\n%s applied to %s. We'll be in touch at %s.\n\n%s",
-		headerStyle.Render("Application submitted ✓"),
+		m.styles.header.Render("Application submitted ✓"),
 		*m.applyName, m.job.Title, *m.applyEmail,
-		helpStyle.Render("press any key to exit"),
+		m.styles.help.Render("press any key to exit"),
 	)
-	return lipgloss.NewStyle().Padding(1, 2).Render(body)
 }

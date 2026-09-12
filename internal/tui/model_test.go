@@ -123,7 +123,7 @@ func TestEmailApplyShowsAddressAndSkipsForm(t *testing.T) {
 	// detail screen (see updateApply), not the job list.
 	tm.Type("a")
 	tm.Send(tea.KeyMsg{Type: tea.KeyEsc})
-	waitForOutput(t, tm, "open roles")
+	waitForOutput(t, tm, "Open roles")
 
 	tm.Quit()
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
@@ -131,9 +131,11 @@ func TestEmailApplyShowsAddressAndSkipsForm(t *testing.T) {
 
 // TestDetailScrollsLongDescription guards the gap a long real job posting
 // exposed: without a viewport, a description longer than the terminal just
-// overflows unmanaged. 40 rows minus detailChromeLines(7) is 33 visible
-// lines, so a 60-line description should start at "lines 1-33 of 60" and
-// advance by exactly 5 after five down-scrolls.
+// overflows unmanaged. The viewport's height is capped at
+// maxContentHeight(detailOverhead) — for a 40-row terminal that's
+// max(40-cardMarginY(4), 6)-detailOverhead(10) = 26 — so a 60-line
+// description should start at "lines 1-26 of 60" and advance by exactly 5
+// after five down-scrolls.
 func TestDetailScrollsLongDescription(t *testing.T) {
 	lines := make([]string, 60)
 	for i := range lines {
@@ -147,10 +149,10 @@ func TestDetailScrollsLongDescription(t *testing.T) {
 
 	waitForOutput(t, tm, "Backend Engineer")
 	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
-	waitForOutput(t, tm, "lines 1-33 of 60")
+	waitForOutput(t, tm, "lines 1-26 of 60")
 
 	tm.Type("jjjjj")
-	waitForOutput(t, tm, "lines 6-38 of 60")
+	waitForOutput(t, tm, "lines 6-31 of 60")
 
 	tm.Quit()
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
