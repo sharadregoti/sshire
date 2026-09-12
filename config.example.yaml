@@ -1,0 +1,66 @@
+company:
+  name: "Acme Corp"
+  tagline: "we build the thing"
+  # Fallback "just email us" address for any job below that doesn't set its
+  # own apply_email. This is the simplest possible setup: no sinks, no
+  # in-TUI form — the detail screen just tells the candidate where to send
+  # their application, the same way superlogical.jobs does it.
+  apply_email: ""
+
+ssh:
+  listen_addr: ":2222"       # production: ":22", so `ssh careers.yourcompany.com` needs no port
+  host_key_path: ".sshire/host_key"  # generated on first run if missing
+
+jobs:
+  # Simplest option: apply_email, no sinks required at all. The detail
+  # screen shows "To apply: jobs@acme.example" and that's it.
+  - id: backend-eng
+    title: "Backend Engineer"
+    location: "Remote"
+    type: "Full-time"
+    apply_email: "jobs@acme.example"
+    description: |
+      We're looking for someone who enjoys distributed systems and doesn't
+      mind that our entire hiring pipeline is a terminal app.
+
+  # Richer option: no apply_email set, so this job gets the in-TUI apply
+  # form ("a" to apply) and submissions go to whichever sinks are enabled
+  # below.
+  - id: frontend-eng
+    title: "Frontend Engineer"
+    location: "Remote (EU/US overlap)"
+    type: "Full-time"
+    description: |
+      React, an eye for detail, and patience for candidates who can't
+      figure out how to `ssh` in.
+
+# Only relevant to jobs that don't set apply_email — everything below this
+# line is optional; the email-only path above needs none of it.
+sinks:
+  # Generic webhook: gets a raw JSON POST of the application on every submit.
+  webhook:
+    enabled: false
+    url: "https://example.com/hooks/sshire"
+
+  # Slack incoming webhook: same idea, formatted as a Slack message.
+  slack:
+    enabled: false
+    url: "https://hooks.slack.com/services/T000/B000/xxxxxxxxxxxxxxxxxxxxxxxx"
+
+  # Push straight into an ATS. See internal/sink/ats_greenhouse.go — the
+  # Greenhouse implementation is unverified against a live account; treat it
+  # as the reference implementation to copy for Lever/Ashby/etc.
+  ats:
+    enabled: false
+    provider: "greenhouse"
+    board_token: ""
+    api_key: ""
+
+  # Built-in storage + a small HTTP dashboard for recruiters to review
+  # applications without needing an ATS at all.
+  dashboard:
+    enabled: true
+    db_path: "sshire.db"
+    listen_addr: "127.0.0.1:8080"
+    admin_user: "admin"
+    admin_password: "change-me"

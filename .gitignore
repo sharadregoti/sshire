@@ -1,0 +1,4 @@
+/.sshire/
+*.db
+/config.yaml
+/bin/
