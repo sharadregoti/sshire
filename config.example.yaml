@@ -4,7 +4,7 @@ company:
   # Fallback "just email us" address for any job below that doesn't set its
   # own apply_email. This is the simplest possible setup: no sinks, no
   # in-TUI form — the detail screen just tells the candidate where to send
-  # their application, the same way superlogical.jobs does it.
+  # their application.
   apply_email: ""
 
 ssh:

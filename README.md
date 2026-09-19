@@ -8,8 +8,6 @@ Apply to jobs over SSH instead of a web form.
 
 Candidates run `ssh careers.yourcompany.com`. They land in a terminal app: browse open roles, read the description, fill out an apply form. No web page, no `<form>` for a scraper to find, no public URL for an AI apply-bot to crawl or index.
 
-This was inspired by [superlogical.com](https://www.superlogical.com), whose careers link is literally `ssh superlogical.jobs`.
-
 ## Why this blocks most automated applications
 
 Connecting without a real terminal gets rejected outright:
@@ -23,7 +21,7 @@ Scrapers and mass-apply tools are built to fill out HTML forms or POST to a REST
 
 ## The simplest setup: just an email address
 
-You don't need any sinks, webhooks, or an ATS to use this. Set `apply_email` on a job (or `company.apply_email` as a fallback for every job) and the detail screen just tells the candidate where to send their application — same as [superlogical.jobs](https://www.superlogical.com) does it:
+You don't need any sinks, webhooks, or an ATS to use this. Set `apply_email` on a job (or `company.apply_email` as a fallback for every job) and the detail screen just tells the candidate where to send their application:
 
 ```yaml
 jobs:
@@ -84,7 +82,7 @@ A failure in one sink never blocks the others, and never blocks the candidate's 
 ## Testing
 
 - `internal/tui/model_test.go` scripts the whole apply flow against the bubbletea model directly (via `teatest`), including a real regression test for a pointer-aliasing bug that once made every submission arrive empty.
-- `internal/sshserver/server_test.go` drives the same flow over an actual SSH connection with a requested pty, and separately asserts that a connection without one gets rejected — the same "no bots" behavior confirmed live against `superlogical.jobs`.
+- `internal/sshserver/server_test.go` drives the same flow over an actual SSH connection with a requested pty, and separately asserts that a connection without one gets rejected.
 - `internal/tui/model_test.go` also covers the email-only apply path and detail-screen scrolling for a description longer than the terminal.
 
 ```sh

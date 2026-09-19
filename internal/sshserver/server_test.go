@@ -64,9 +64,7 @@ func clientConfig(tb testing.TB) *gossh.ClientConfig {
 	}
 }
 
-// TestNoPtyIsRejected proves the "no bots" gate that superlogical.jobs uses
-// (confirmed live: piping a non-interactive ssh connection at it returns
-// exactly this message) also holds for this server: a client that doesn't
+// TestNoPtyIsRejected proves the "no bots" gate: a client that doesn't
 // request a real terminal never reaches the TUI at all.
 func TestNoPtyIsRejected(t *testing.T) {
 	srv, err := New(testConfig(t), nil)

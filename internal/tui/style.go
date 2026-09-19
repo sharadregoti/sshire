@@ -13,10 +13,10 @@ import (
 
 // The whole app renders as one "terminal window" card, centered on whatever
 // background the viewer's own terminal already has — traffic-light dots, a
-// title bar, a rule, then the screen's own content — the same look
-// superlogical.jobs uses. Only the card itself is painted black; the area
-// around it is left unstyled on purpose, so the surrounding terminal shows
-// through instead of getting covered by a second, larger black rectangle.
+// title bar, a rule, then the screen's own content. Only the card itself is
+// painted black; the area around it is left unstyled on purpose, so the
+// surrounding terminal shows through instead of getting covered by a
+// second, larger black rectangle.
 // Each screen sizes the card to its own content (a short job list gets a
 // small card, a long job description gets a bigger one) rather than every
 // screen sharing one fixed box.
