@@ -1,0 +1,100 @@
+---
+import TerminalDemo from "../components/TerminalDemo";
+import "../styles/global.css";
+
+const GITHUB_URL = "https://github.com/sharadregoti/sshire";
+const DEMO_CMD = "ssh -p 2222 jobs.sharadregoti.com";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>sshire — apply to jobs over SSH</title>
+    <meta
+      name="description"
+      content="sshire is an open-source tool that turns your careers page into an SSH server. No web form, no bot magnet. Try the live demo."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body class="min-h-screen font-sans antialiased">
+    <main class="mx-auto flex max-w-3xl flex-col items-center gap-16 px-4 py-20 text-center sm:py-28">
+      <section class="flex flex-col items-center gap-6">
+        <p class="font-mono text-sm text-[var(--dim)]">$ whoami</p>
+        <h1 class="text-4xl font-bold tracking-tight sm:text-6xl">sshire</h1>
+        <p class="max-w-xl text-lg text-[var(--dim)] sm:text-xl">
+          Apply to jobs over SSH. No web form. No bot magnet.
+        </p>
+        <div class="w-full max-w-md rounded-md border border-[var(--rule)] bg-[var(--card)] px-4 py-3 text-left font-mono text-sm">
+          <span class="text-[var(--dim)]">$ </span>{DEMO_CMD}
+        </div>
+      </section>
+
+      <section class="flex w-full flex-col items-center gap-6">
+        <TerminalDemo client:visible />
+        <p class="text-sm text-[var(--dim)]">This is a live recording of the demo above — try it yourself.</p>
+      </section>
+
+      <section class="flex flex-col items-start gap-4 text-left">
+        <h2 class="font-mono text-sm uppercase tracking-wide text-[var(--dim)]">Why SSH instead of a form?</h2>
+        <p class="text-[var(--fg)]">
+          A web form is easy to scrape. A REST endpoint is easy to spam. sshire has neither — it's a
+          terminal app that lives behind an SSH server.
+        </p>
+        <p class="text-[var(--fg)]">Connect without a real terminal and it rejects you outright:</p>
+        <div class="w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-4 py-3 font-mono text-sm">
+          <p><span class="text-[var(--dim)]">$ </span>ssh -o BatchMode=yes jobs.sharadregoti.com</p>
+          <p class="text-[#ff8a80]">Requires an active PTY</p>
+        </div>
+        <p class="text-[var(--fg)]">
+          Most mass-apply bots can't get past that. A determined, purpose-built agent can — this is a
+          filter, not a wall.
+        </p>
+      </section>
+
+      <section class="flex flex-col items-start gap-4 text-left">
+        <h2 class="font-mono text-sm uppercase tracking-wide text-[var(--dim)]">Not a new idea</h2>
+        <p class="text-[var(--fg)]">
+          This was inspired by <a class="underline decoration-[var(--rule)] underline-offset-4 hover:text-[var(--accent)]" href="https://www.superlogical.com" target="_blank" rel="noopener">superlogical.com</a>,
+          whose actual careers link is <code class="font-mono">ssh superlogical.jobs</code>. sshire is an
+          open-source implementation of the same idea, so any team can run their own.
+        </p>
+      </section>
+
+      <section class="flex flex-col items-start gap-4 text-left">
+        <h2 class="font-mono text-sm uppercase tracking-wide text-[var(--dim)]">How good is this, really?</h2>
+        <p class="text-[var(--fg)]">
+          As a security control: it stops unsophisticated scripts, not a determined agent with a real
+          terminal. <strong>3 out of 10.</strong>
+        </p>
+        <p class="text-[var(--fg)]">
+          As a fun, shareable way to make your careers page stand out: pretty good.
+          <strong> 6 or 7 out of 10.</strong>
+        </p>
+        <p class="text-[var(--fg)]">We built it anyway, because the second reason is a real reason to ship something.</p>
+      </section>
+
+      <section class="flex flex-col items-center gap-4">
+        <h2 class="font-mono text-sm uppercase tracking-wide text-[var(--dim)]">Try it yourself</h2>
+        <div class="w-full max-w-md rounded-md border border-[var(--rule)] bg-[var(--card)] px-4 py-3 text-left font-mono text-sm">
+          <span class="text-[var(--dim)]">$ </span>{DEMO_CMD}
+        </div>
+        <p class="text-[var(--fg)]">
+          It's free, open-source (MIT), and self-hostable in about an hour.
+        </p>
+        <a
+          href={GITHUB_URL}
+          target="_blank"
+          rel="noopener"
+          class="rounded-md border border-[var(--accent)] px-5 py-2 font-mono text-sm text-[var(--accent)] transition hover:bg-[var(--accent)] hover:text-[#01130a]"
+        >
+          View on GitHub →
+        </a>
+      </section>
+
+      <footer class="pt-8 text-xs text-[var(--dim)]">
+        <p>MIT License · Built by <a class="underline decoration-[var(--rule)] underline-offset-4 hover:text-[var(--accent)]" href="https://github.com/sharadregoti" target="_blank" rel="noopener">Sharad Regoti</a></p>
+      </footer>
+    </main>
+  </body>
+</html>

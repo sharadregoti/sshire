@@ -2,6 +2,10 @@
 
 Apply to jobs over SSH instead of a web form.
 
+**[sshire.pages.dev](https://sshire.pages.dev)** — marketing page, with an animated demo.
+
+**Live demo**: `ssh -p 2222 jobs.sharadregoti.com` — try the actual apply flow against a running server.
+
 Candidates run `ssh careers.yourcompany.com`. They land in a terminal app: browse open roles, read the description, fill out an apply form. No web page, no `<form>` for a scraper to find, no public URL for an AI apply-bot to crawl or index.
 
 This was inspired by [superlogical.com](https://www.superlogical.com), whose careers link is literally `ssh superlogical.jobs`.
@@ -64,6 +68,10 @@ Enable any combination of these in `config.yaml`:
 - **dashboard** — stores every application in a local SQLite file and serves a small HTTP-Basic-Auth-protected page to review them. No ATS required.
 
 A failure in one sink never blocks the others, and never blocks the candidate's "submitted" confirmation.
+
+## Marketing site
+
+`site/` — Astro + React + Tailwind, deployed to Cloudflare Pages (root dir `site`, auto-deploys on push to `master`). Not part of the Go module; has its own `package.json`.
 
 ## Architecture
 
