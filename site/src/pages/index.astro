@@ -13,7 +13,7 @@ const DEMO_CMD = "ssh -p 2222 jobs.sharadregoti.com";
     <title>sshire — apply to jobs over SSH</title>
     <meta
       name="description"
-      content="sshire is an open-source tool that turns your careers page into an SSH server. No web form, no bot magnet. Try the live demo."
+      content="An open-source careers page that runs as an SSH server. Candidates ssh in and apply from a terminal. Try the live demo."
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   </head>
@@ -23,7 +23,7 @@ const DEMO_CMD = "ssh -p 2222 jobs.sharadregoti.com";
         <p class="font-mono text-sm text-[var(--dim)]">$ whoami</p>
         <h1 class="text-4xl font-bold tracking-tight sm:text-6xl">sshire</h1>
         <p class="max-w-xl text-lg text-[var(--dim)] sm:text-xl">
-          Apply to jobs over SSH. No web form. No bot magnet.
+          A careers page you ssh into instead of loading.
         </p>
         <div class="w-full max-w-md rounded-md border border-[var(--rule)] bg-[var(--card)] px-4 py-3 text-left font-mono text-sm">
           <span class="text-[var(--dim)]">$ </span>{DEMO_CMD}
@@ -32,24 +32,38 @@ const DEMO_CMD = "ssh -p 2222 jobs.sharadregoti.com";
 
       <section class="flex w-full flex-col items-center gap-6">
         <TerminalDemo client:visible />
-        <p class="text-sm text-[var(--dim)]">This is a live recording of the demo above — try it yourself.</p>
+        <p class="max-w-md text-sm text-[var(--dim)]">
+          Screens captured from a real session. Switch themes or jump between screens below.
+        </p>
       </section>
 
       <section class="flex flex-col items-start gap-4 text-left">
         <h2 class="font-mono text-sm uppercase tracking-wide text-[var(--dim)]">Why SSH instead of a form?</h2>
         <p class="text-[var(--fg)]">
-          A web form is easy to scrape. A REST endpoint is easy to spam. sshire has neither — it's a
-          terminal app that lives behind an SSH server.
+          Scrapers go looking for a form to fill in or an endpoint to POST to. There isn't one.
+          sshire is a terminal program sitting behind an SSH server, and it won't even start unless
+          your client asks for a real terminal:
         </p>
-        <p class="text-[var(--fg)]">Connect without a real terminal and it rejects you outright:</p>
         <div class="w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-4 py-3 font-mono text-sm">
           <p><span class="text-[var(--dim)]">$ </span>ssh -o BatchMode=yes jobs.sharadregoti.com</p>
           <p class="text-[#ff8a80]">Requires an active PTY</p>
         </div>
         <p class="text-[var(--fg)]">
-          Most mass-apply bots can't get past that. A determined, purpose-built agent can — this is a
-          filter, not a wall.
+          That stops the spray-and-pray tools. Anything running in a real terminal still gets
+          through, so treat it as a speed bump rather than a security control.
         </p>
+      </section>
+
+      <section class="flex flex-col items-start gap-4 text-left">
+        <h2 class="font-mono text-sm uppercase tracking-wide text-[var(--dim)]">Themes</h2>
+        <p class="text-[var(--fg)]">
+          Five themes ship with it. Pick one in your config and that's what candidates see:
+        </p>
+        <div class="w-full rounded-md border border-[var(--rule)] bg-[var(--card)] px-4 py-3 font-mono text-sm">
+          <p><span class="text-[var(--dim)]">ui:</span></p>
+          <p><span class="text-[var(--dim)]">&nbsp;&nbsp;theme:</span> "phosphor"</p>
+        </div>
+        <p class="text-[var(--fg)]">Try them on the demo above.</p>
       </section>
 
       <section class="flex flex-col items-center gap-4">
@@ -58,7 +72,8 @@ const DEMO_CMD = "ssh -p 2222 jobs.sharadregoti.com";
           <span class="text-[var(--dim)]">$ </span>{DEMO_CMD}
         </div>
         <p class="text-[var(--fg)]">
-          It's free, open-source (MIT), and self-hostable in about an hour.
+          MIT licensed. Running your own takes a YAML file with your jobs in it and a DNS record
+          pointed at your server.
         </p>
         <a
           href={GITHUB_URL}
