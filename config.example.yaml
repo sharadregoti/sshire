@@ -11,6 +11,19 @@ ssh:
   listen_addr: ":2222"       # production: ":22", so `ssh careers.yourcompany.com` needs no port
   host_key_path: ".sshire/host_key"  # generated on first run if missing
 
+ui:
+  # black (default) · phosphor · amber · paper · blueprint
+  #
+  # sshire paints the whole terminal, so the theme replaces the candidate's
+  # own colours for the session rather than sitting on top of them. phosphor
+  # and amber are single-hue CRT palettes, right down to the window dots;
+  # paper is the light one. An unknown name logs a warning and falls back to
+  # black instead of refusing to start.
+  theme: "black"
+
+# Write each description paragraph as one long line and separate paragraphs
+# with a blank line. sshire re-wraps descriptions to the candidate's terminal,
+# so text you hard-wrap yourself gets wrapped twice and comes out ragged.
 jobs:
   # Simplest option: apply_email, no sinks required at all. The detail
   # screen shows "To apply: jobs@acme.example" and that's it.
@@ -20,8 +33,7 @@ jobs:
     type: "Full-time"
     apply_email: "jobs@acme.example"
     description: |
-      We're looking for someone who enjoys distributed systems and doesn't
-      mind that our entire hiring pipeline is a terminal app.
+      We're looking for someone who enjoys distributed systems and doesn't mind that our entire hiring pipeline is a terminal app.
 
   # Richer option: no apply_email set, so this job gets the in-TUI apply
   # form ("a" to apply) and submissions go to whichever sinks are enabled
@@ -31,8 +43,7 @@ jobs:
     location: "Remote (EU/US overlap)"
     type: "Full-time"
     description: |
-      React, an eye for detail, and patience for candidates who can't
-      figure out how to `ssh` in.
+      React, an eye for detail, and patience for candidates who can't figure out how to `ssh` in.
 
 # Only relevant to jobs that don't set apply_email — everything below this
 # line is optional; the email-only path above needs none of it.

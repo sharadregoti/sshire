@@ -14,8 +14,16 @@ import (
 type Config struct {
 	Company Company     `yaml:"company"`
 	SSH     SSH         `yaml:"ssh"`
+	UI      UI          `yaml:"ui"`
 	Jobs    []model.Job `yaml:"jobs"`
 	Sinks   Sinks       `yaml:"sinks"`
+}
+
+type UI struct {
+	// Theme names one of sshire's built-in palettes. Empty means the
+	// default; an unrecognised name is reported at startup and falls back
+	// to the default rather than failing to boot.
+	Theme string `yaml:"theme"`
 }
 
 type Company struct {

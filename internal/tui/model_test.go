@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -131,15 +132,13 @@ func TestEmailApplyShowsAddressAndSkipsForm(t *testing.T) {
 
 // TestDetailScrollsLongDescription guards the gap a long real job posting
 // exposed: without a viewport, a description longer than the terminal just
-// overflows unmanaged. The viewport's height is capped at
-// maxContentHeight(detailOverhead) — for a 40-row terminal that's
-// max(40-cardMarginY(4), 6)-detailOverhead(10) = 26 — so a 60-line
-// description should start at "lines 1-26 of 60" and advance by exactly 5
-// after five down-scrolls.
+// overflows unmanaged. Every filler line is numbered so the assertion is on
+// the description having actually moved, rather than on a position counter
+// reporting that it did.
 func TestDetailScrollsLongDescription(t *testing.T) {
 	lines := make([]string, 60)
 	for i := range lines {
-		lines[i] = "filler line to force wrapping and scrolling"
+		lines[i] = fmt.Sprintf("filler line %02d", i+1)
 	}
 	longDesc := strings.Join(lines, "\n")
 
@@ -149,13 +148,48 @@ func TestDetailScrollsLongDescription(t *testing.T) {
 
 	waitForOutput(t, tm, "Backend Engineer")
 	tm.Send(tea.KeyMsg{Type: tea.KeyEnter})
-	waitForOutput(t, tm, "lines 1-26 of 60")
+	waitForOutput(t, tm, "filler line 01")
 
-	tm.Type("jjjjj")
-	waitForOutput(t, tm, "lines 6-31 of 60")
+	// The viewport holds 24 rows on a 40-row terminal, so the last line sits
+	// far below the fold and can only appear once scrolling has happened.
+	for range 10 {
+		tm.Send(tea.KeyMsg{Type: tea.KeyPgDown})
+	}
+	waitForOutput(t, tm, "filler line 60")
 
 	tm.Quit()
 	tm.WaitFinished(t, teatest.WithFinalTimeout(3*time.Second))
+}
+
+// TestListShowsEveryJob guards a real bug: list keeps filtering enabled by
+// default and reserves a row for the filter prompt, so the list's usable
+// height was one row short of what it was given. The last job silently fell
+// onto a second page nothing could navigate to (pagination is hidden), and
+// the reserved row rendered as a blank line above the list.
+func TestListShowsEveryJob(t *testing.T) {
+	jobs := []model.Job{
+		{ID: "eng-1", Title: "Backend Engineer", Location: "Remote", Type: "Full-time"},
+		{ID: "eng-2", Title: "Frontend Engineer", Location: "Remote", Type: "Full-time"},
+		{ID: "eng-3", Title: "Platform Engineer", Location: "Remote", Type: "Full-time"},
+	}
+	m := New(Options{Company: "Acme Corp", Jobs: jobs})
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 35})
+	m = updated.(Model)
+
+	view := m.viewList()
+	for _, j := range jobs {
+		if !strings.Contains(view, j.Title) {
+			t.Errorf("job %q missing from the list view:\n%s", j.Title, view)
+		}
+	}
+
+	// The job rows must butt directly against "Open roles" — one blank line
+	// between them, not two.
+	if _, rest, ok := strings.Cut(view, "Open roles\n"); !ok {
+		t.Fatalf("no %q heading in list view:\n%s", "Open roles", view)
+	} else if !strings.HasPrefix(rest, "\n›") {
+		t.Errorf("expected exactly one blank line between the heading and the first job, got:\n%q", rest)
+	}
 }
 
 func waitForOutput(t *testing.T, tm *teatest.TestModel, substr string) {

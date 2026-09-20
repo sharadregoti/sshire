@@ -56,6 +56,23 @@ ssh -p 2222 localhost
 
 A `Dockerfile` is included. Mount a volume at `/data` for `config.yaml`, the host key, and the SQLite dashboard database.
 
+## Themes
+
+```yaml
+ui:
+  theme: "phosphor"   # black (default) · phosphor · amber · paper · blueprint
+```
+
+sshire paints the whole terminal for the duration of the session, so a theme replaces the candidate's own colours rather than sitting on top of them — and restores them on quit, since it runs on the alt screen.
+
+- **black** — near-white on black, macOS window dots. The default.
+- **phosphor** — P1 green CRT. Single hue throughout, window dots included, the way a one-phosphor tube actually looked.
+- **amber** — P3, as shipped on IBM 3270s. Warmer, and easier than green over a long posting.
+- **paper** — ink on off-white, for a posting that should read like a letter.
+- **blueprint** — drafting navy with cold daylight text.
+
+An unrecognised name logs a warning at startup and falls back to `black`, so a typo can't take your careers page down. Adding one is a single entry in `themes` in `internal/tui/style.go`; `TestThemesAreComplete` will tell you if you leave a colour out.
+
 ## Where applications go
 
 Enable any combination of these in `config.yaml`:

@@ -49,6 +49,10 @@ type Options struct {
 	Sinks             sink.Multi
 	RemoteAddr        string
 	Renderer          *lipgloss.Renderer
+
+	// Theme is the palette to render in. The zero value is not a usable
+	// theme; leave it unset and New substitutes the default.
+	Theme Theme
 }
 
 type Model struct {
@@ -59,6 +63,7 @@ type Model struct {
 	sinks             sink.Multi
 	remoteAddr        string
 	renderer          *lipgloss.Renderer
+	theme             Theme
 	styles            Styles
 
 	state  state
@@ -84,7 +89,11 @@ func New(opts Options) Model {
 	if renderer == nil {
 		renderer = lipgloss.DefaultRenderer()
 	}
-	styles := newStyles(renderer)
+	theme := opts.Theme
+	if theme.Name == "" {
+		theme = themes[DefaultThemeName]
+	}
+	styles := newStyles(renderer, theme)
 
 	items := make([]list.Item, len(opts.Jobs))
 	for i, j := range opts.Jobs {
@@ -98,6 +107,11 @@ func New(opts Options) Model {
 	l.SetShowStatusBar(false)
 	l.SetShowPagination(false)
 	l.SetShowHelp(false)
+	// Not just cosmetic: filtering is on by default, and list reserves a row
+	// for the filter prompt whenever it's enabled — which both pushed the
+	// last job onto an invisible second page and rendered that reserved row
+	// as a blank line above the list.
+	l.SetFilteringEnabled(false)
 	l.DisableQuitKeybindings()
 
 	return Model{
@@ -108,6 +122,7 @@ func New(opts Options) Model {
 		sinks:             opts.Sinks,
 		remoteAddr:        opts.RemoteAddr,
 		renderer:          renderer,
+		theme:             theme,
 		styles:            styles,
 		state:             stateList,
 		list:              l,
@@ -116,11 +131,11 @@ func New(opts Options) Model {
 }
 
 // detailOverhead is every line renderCard and viewDetail wrap around the
-// scrollable description: the card's own top+bottom padding (2), the
-// chrome bar+rule (2) and the blank line under it (1), the job title (1),
-// the meta line (1), a blank line (1), and the trailing blank+help line
-// (2) — 10 total.
-const detailOverhead = 10
+// scrollable description: the card's own border (2) and top+bottom padding
+// (2), the chrome bar+rule (2) and the blank line under it (1), the job
+// title (1), the meta line (1), a blank line (1), and the trailing
+// blank+help line (2) — 12 total.
+const detailOverhead = 12
 
 // resizeDetail re-wraps the current job's description to the terminal's
 // current width and re-derives the viewport's height from how many lines
@@ -129,12 +144,12 @@ const detailOverhead = 10
 // on every resize; scroll position resets on resize since a re-wrap at a
 // different width changes what "line 12" even means.
 func (m *Model) resizeDetail() {
-	width := m.proseContentWidth()
+	width := max(m.proseContentWidth()-scrollGutter, 1)
 	content := m.job.Description
 	if email := m.effectiveApplyEmail(); email != "" {
 		content += "\n\nTo apply: " + email
 	}
-	wrapped := m.renderer.NewStyle().Width(width).Render(content)
+	wrapped := m.styles.dim.Foreground(m.theme.FG).Width(width).Render(content)
 	neededLines := strings.Count(wrapped, "\n") + 1
 
 	m.detail.Width = width
@@ -301,20 +316,20 @@ func (m Model) View() string {
 		}
 		return m.renderCard(m.title(), m.proseContentWidth(), m.form.View())
 	case stateDone:
-		body := m.viewDone()
-		return m.renderCard(m.title(), naturalWidth(body), body)
+		return m.renderCard(m.title(), m.proseContentWidth(), m.viewDone())
 	}
 	return ""
 }
 
 // listOverhead is every line viewList and renderCard wrap around the job
-// list itself: card padding (2), chrome+rule+blank (3), "Open roles" (1),
-// a blank line, and the trailing blank+help line (2) — 9 total.
-const listOverhead = 9
+// list itself: card border (2) and padding (2), chrome+rule+blank (3),
+// "Open roles" (1), a blank line, and the trailing blank+help line (2) —
+// 11 total.
+const listOverhead = 11
 
 // listHelpText is the list screen's help line; listContentWidth needs its
 // width too so the line doesn't wrap, and viewList renders the same text.
-const listHelpText = "↑/↓ move · enter open · q/esc quit"
+const listHelpText = "↑/↓ move  ·  enter open  ·  q/esc quit"
 
 // listContentWidth sizes the card to the longest job title actually being
 // shown — a two-job list gets a narrow card; a job with a long title
@@ -340,29 +355,36 @@ func (m Model) viewList() string {
 }
 
 func (m Model) viewDetail() string {
-	help := "↑/↓ scroll · esc roles · q quit"
+	help := "↑/↓ scroll  ·  esc roles  ·  q quit"
 	if m.effectiveApplyEmail() == "" {
-		help = "a apply · " + help
+		help = "a apply  ·  " + help
 	}
 
-	total := m.detail.TotalLineCount()
-	last := min(m.detail.YOffset+m.detail.VisibleLineCount(), total)
-	position := fmt.Sprintf("lines %d-%d of %d", m.detail.YOffset+1, last, total)
+	body := m.detail.View()
+	if bar := m.scrollbar(m.detail.Height); bar != "" {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, body, bar)
+	}
 
 	return fmt.Sprintf(
 		"%s\n%s\n\n%s\n\n%s",
 		m.styles.header.Render(m.job.Title),
 		m.styles.dim.Render(fmt.Sprintf("%s · %s", m.job.Location, m.job.Type)),
-		m.detail.View(),
-		m.styles.help.Render(help+"    "+position),
+		body,
+		m.styles.help.Render(help),
 	)
 }
 
 func (m Model) viewDone() string {
+	// Wrapped to the shared card width rather than left to set its own: a
+	// long name or job title would otherwise stretch this one screen wider
+	// than every other, and the window would jump on the final keystroke.
+	summary := fmt.Sprintf("%s applied to %s. We'll be in touch at %s.",
+		*m.applyName, m.job.Title, *m.applyEmail)
+
 	return fmt.Sprintf(
-		"%s\n\n%s applied to %s. We'll be in touch at %s.\n\n%s",
+		"%s\n\n%s\n\n%s",
 		m.styles.header.Render("Application submitted ✓"),
-		*m.applyName, m.job.Title, *m.applyEmail,
+		m.styles.dim.Foreground(m.theme.FG).Width(m.proseContentWidth()).Render(summary),
 		m.styles.help.Render("press any key to exit"),
 	)
 }

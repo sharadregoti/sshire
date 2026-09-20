@@ -6,6 +6,7 @@
 package sshserver
 
 import (
+	"log"
 	"net"
 	"strings"
 
@@ -24,6 +25,14 @@ import (
 )
 
 func New(cfg *config.Config, sinks sink.Multi) (*ssh.Server, error) {
+	// Resolved once here rather than per session: a typo should be reported
+	// at startup, not logged again on every candidate's connection.
+	theme, ok := tui.ThemeByName(cfg.UI.Theme)
+	if !ok {
+		log.Printf("unknown ui.theme %q, falling back to %q (available: %s)",
+			cfg.UI.Theme, tui.DefaultThemeName, strings.Join(tui.ThemeNames(), ", "))
+	}
+
 	handler := func(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 		remote := s.RemoteAddr().String()
 		if host, _, err := net.SplitHostPort(remote); err == nil {
@@ -36,6 +45,7 @@ func New(cfg *config.Config, sinks sink.Multi) (*ssh.Server, error) {
 			Jobs:              cfg.Jobs,
 			Sinks:             sinks,
 			RemoteAddr:        remote,
+			Theme:             theme,
 			// Session-scoped: reflects this client's actual terminal, not
 			// the server process's own (backgrounded, non-tty) stdout.
 			Renderer: sessionRenderer(s),
