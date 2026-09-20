@@ -6,9 +6,16 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"log"
 	"net/http"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/charmbracelet/ssh"
 
 	"github.com/sharadregoti/sshire/internal/config"
 	"github.com/sharadregoti/sshire/internal/dashboard"
@@ -16,6 +23,11 @@ import (
 	"github.com/sharadregoti/sshire/internal/sshserver"
 	"github.com/sharadregoti/sshire/internal/store"
 )
+
+// shutdownGrace is how long connected candidates get to finish before their
+// sessions are cut. Kept well under `docker stop`'s own 10s SIGKILL timer so
+// the container exits on its own terms rather than being killed mid-write.
+const shutdownGrace = 5 * time.Second
 
 func main() {
 	cfgPath := flag.String("config", "config.yaml", "path to config file")
@@ -68,8 +80,30 @@ func main() {
 		log.Fatalf("build ssh server: %v", err)
 	}
 
+	// Without a handler of our own the process ignores SIGTERM outright
+	// whenever a candidate is connected: bubbletea registers a
+	// process-wide SIGINT/SIGTERM handler for each live session, which
+	// consumes the signal and quits only that session. `docker stop` would
+	// then stall for its full timeout and SIGKILL us mid-write.
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	go func() {
+		<-ctx.Done()
+		log.Println("shutting down")
+
+		// Bounded, then forced. Shutdown alone waits for connections to
+		// close, and a candidate sitting on the job list never closes one.
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("graceful shutdown timed out, closing active sessions: %v", err)
+			srv.Close()
+		}
+	}()
+
 	log.Printf("%s careers server listening on %s (ssh %s to apply)", cfg.Company.Name, cfg.SSH.ListenAddr, cfg.SSH.ListenAddr)
-	if err := srv.ListenAndServe(); err != nil {
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
 		log.Fatalf("ssh server: %v", err)
 	}
 }
