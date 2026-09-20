@@ -2,7 +2,7 @@
 
 Apply to jobs over SSH instead of a web form.
 
-**[sshire.pages.dev](https://sshire.pages.dev)** — marketing page, with an animated demo.
+**[sshire.sharadregoti.com](https://sshire.sharadregoti.com)** — marketing page, with an animated demo.
 
 **Live demo**: `ssh -p 2222 jobs.sharadregoti.com` — try the actual apply flow against a running server.
 
